@@ -99,7 +99,7 @@ class KotlinTypeHierarchyProvider : JavaTypeHierarchyProvider() {
             val file = PsiDocumentManager.getInstance(project).getPsiFile(editor.document) ?: return null
             if (!ProjectRootsUtil.isInProjectOrLibSource(file)) return null
             val psiElement = getTargetByReference(project, editor, file.module) ?: getTargetByContainingElement(editor, file)
-            if (psiElement is PsiNamedElement && psiElement.name == null) {
+            if (psiElement is KtFakeLightClass || psiElement is KtFakeLightMethod) {
                 return null
             }
             return psiElement
