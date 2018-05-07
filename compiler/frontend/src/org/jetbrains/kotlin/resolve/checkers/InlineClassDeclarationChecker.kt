@@ -24,6 +24,8 @@ object InlineClassDeclarationChecker : DeclarationChecker {
         val inlineKeyword = declaration.modifierList?.getModifier(KtTokens.INLINE_KEYWORD)
         require(inlineKeyword != null) { "Declaration of inline class must have 'inline' keyword" }
 
+        inlineKeyword!!
+
         val trace = context.trace
         if (!DescriptorUtils.isTopLevelDeclaration(descriptor)) {
             trace.report(Errors.INLINE_CLASS_NOT_TOP_LEVEL.on(inlineKeyword))

@@ -135,6 +135,7 @@ class KotlinResolutionCallbacksImpl(
         val coroutineSession =
             if (stubsForPostponedVariables.isNotEmpty()) {
                 require(topLevelCallContext != null) { "Top level call context should not be null to analyze coroutine-lambda" }
+                topLevelCallContext!!
 
                 CoroutineInferenceSession(
                     psiCallResolver, postponedArgumentsAnalyzer, kotlinConstraintSystemCompleter,

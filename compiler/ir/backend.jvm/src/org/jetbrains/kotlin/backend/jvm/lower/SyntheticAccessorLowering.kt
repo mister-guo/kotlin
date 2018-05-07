@@ -238,7 +238,7 @@ class SyntheticAccessorLowering(val context: JvmBackendContext) : FileLoweringPa
                 accessor.calleeDescriptor as? FunctionDescriptor ?: return,
                 accessorOwner
             )
-            val syntheticFunction = if (isConstructor) IrConstructorImpl(
+            val syntheticFunction: IrFunction = if (isConstructor) IrConstructorImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, JvmLoweredDeclarationOrigin.SYNTHETIC_ACCESSOR,
                 accessorForIr as ClassConstructorDescriptor, body
             ) else IrFunctionImpl(

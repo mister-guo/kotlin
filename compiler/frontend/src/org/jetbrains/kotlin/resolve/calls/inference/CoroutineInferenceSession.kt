@@ -56,6 +56,7 @@ class CoroutineInferenceSession(
 
     override fun addCompletedCallInfo(callInfo: CompletedCallInfo) {
         require(callInfo is PSICompletedCallInfo) { "Wrong instance of callInfo: $callInfo" }
+        callInfo as PSICompletedCallInfo
 
         val candidateDescriptor = callInfo.callResolutionResult.resultCallAtom.candidateDescriptor
         if (candidateDescriptor is FunctionDescriptor && candidateDescriptor.isSuspend)
