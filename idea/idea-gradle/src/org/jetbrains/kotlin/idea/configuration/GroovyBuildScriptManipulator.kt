@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.idea.configuration
 
 import com.intellij.openapi.roots.DependencyScope
 import com.intellij.openapi.roots.ExternalLibraryDescriptor
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiElement
 import com.intellij.psi.codeStyle.CodeStyleManager
 import org.jetbrains.kotlin.idea.util.application.runReadAction
@@ -26,16 +27,23 @@ import org.jetbrains.plugins.groovy.lang.psi.GroovyFile
 import org.jetbrains.plugins.groovy.lang.psi.GroovyPsiElementFactory
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.GrStatement
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.blocks.GrClosableBlock
-import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrApplicationStatement
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrAssignmentExpression
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrMethodCall
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.path.GrMethodCallExpression
 import org.jetbrains.plugins.groovy.lang.psi.api.util.GrStatementOwner
 
 class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : GradleBuildScriptManipulator {
-    override fun isConfigured(kotlinPluginName: String): Boolean {
+    override fun isConfiguredWithOldSyntax(kotlinPluginName: String): Boolean {
         val fileText = runReadAction { groovyScript.text }
         return containsDirective(fileText, getApplyPluginDirective(kotlinPluginName)) &&
+                fileText.contains("org.jetbrains.kotlin") &&
+                fileText.contains("kotlin-stdlib")
+    }
+
+    override fun isConfigured(kotlinPluginName: String): Boolean {
+        val fileText = runReadAction { groovyScript.text }
+        val pluginsBlockText = runReadAction { groovyScript.getBlockByName("plugins")?.text ?: "" }
+        return (containsDirective(pluginsBlockText, kotlinPluginName)) &&
                 fileText.contains("org.jetbrains.kotlin") &&
                 fileText.contains("kotlin-stdlib")
     }
@@ -47,21 +55,10 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
         jvmTarget: String?
     ): Boolean {
         val oldText = groovyScript.text
-        val applyPluginDirective = getGroovyApplyPluginDirective(kotlinPluginName)
-        if (!containsDirective(groovyScript.text, applyPluginDirective)) {
-            val apply = GroovyPsiElementFactory.getInstance(groovyScript.project).createExpressionFromText(applyPluginDirective)
-            val applyStatement = getApplyStatement(groovyScript)
-            if (applyStatement != null) {
-                groovyScript.addAfter(apply, applyStatement)
-            } else {
-                val anchorBlock = groovyScript.getBlockByName("plugins") ?: groovyScript.getBlockByName("buildscript")
-                if (anchorBlock != null) {
-                    groovyScript.addAfter(apply, anchorBlock.parent)
-                } else {
-                    groovyScript.addAfter(apply, groovyScript.statements.lastOrNull() ?: groovyScript.firstChild)
-                }
-            }
-        }
+
+        groovyScript
+            .getBlockOrPrepend("plugins")
+            .addLastExpressionInBlockIfNeeded("$kotlinPluginName version '$version'")
 
         groovyScript.getRepositoriesBlock().apply {
             addRepository(version)
@@ -78,26 +75,6 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
         }
 
         return groovyScript.text != oldText
-    }
-
-    override fun configureProjectBuildScript(version: String): Boolean {
-        val oldText = groovyScript.text
-        groovyScript.apply {
-            getBuildScriptBlock().apply {
-                addFirstExpressionInBlockIfNeeded(VERSION.replace(VERSION_TEMPLATE, version))
-            }
-
-            getBuildScriptRepositoriesBlock().apply {
-                addRepository(version)
-                addMavenCentralIfMissing()
-            }
-
-            getBuildScriptDependenciesBlock().apply {
-                addLastExpressionInBlockIfNeeded(CLASSPATH)
-            }
-        }
-
-        return oldText != groovyScript.text
     }
 
     override fun changeCoroutineConfiguration(coroutineOption: String): PsiElement? {
@@ -158,6 +135,28 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
         return null
     }
 
+    override fun addPluginRepository(repository: String) {
+        groovyScript
+            .getBlockOrPrepend("pluginManagement")
+            .getBlockOrCreate("repositories")
+            .addLastExpressionInBlockIfNeeded(repository)
+    }
+
+    override fun addResolutionStrategy(pluginId: String) {
+        groovyScript
+            .getBlockOrPrepend("pluginManagement")
+            .getBlockOrCreate("resolutionStrategy")
+            .addLastExpressionInBlockIfNeeded(
+                    """
+                        eachPlugin {
+                            if (requested.id.id == "$pluginId") {
+                                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:${'$'}{requested.version}")
+                            }
+                        }
+                    """.trimIndent()
+            )
+    }
+
     private fun changeKotlinTaskParameter(
         gradleFile: GroovyFile,
         parameterName: String,
@@ -182,7 +181,7 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
         return kotlinBlock.parent
     }
 
-    private fun getGroovyDependencySnippet(artifactName: String) = "compile \"org.jetbrains.kotlin:$artifactName:\$kotlin_version\""
+    private fun getGroovyDependencySnippet(artifactName: String) = "compile \"org.jetbrains.kotlin:$artifactName\""
 
     private fun getApplyPluginDirective(pluginName: String) = "apply plugin: '$pluginName'"
 
@@ -190,16 +189,6 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
         return fileText.contains(directive)
                 || fileText.contains(directive.replace("\"", "'"))
                 || fileText.contains(directive.replace("'", "\""))
-    }
-
-    private fun getApplyStatement(file: GroovyFile): GrApplicationStatement? =
-        file.getChildrenOfType<GrApplicationStatement>().find { it.invokedExpression.text == "apply" }
-
-    private fun PsiElement.getBlockByName(name: String): GrClosableBlock? {
-        return getChildrenOfType<GrMethodCallExpression>()
-            .filter { it.closureArguments.isNotEmpty() }
-            .find { it.invokedExpression.text == name }
-            ?.let { it.closureArguments[0] }
     }
 
     private fun GrClosableBlock.addRepository(version: String): Boolean {
@@ -219,34 +208,6 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
 
     private fun GrStatementOwner.getDependenciesBlock(): GrClosableBlock = getBlockOrCreate("dependencies")
 
-    private fun GrStatementOwner.getBuildScriptBlock() = getBlockOrCreate("buildscript") { newBlock ->
-        val pluginsBlock = getBlockByName("plugins") ?: return@getBlockOrCreate false
-        addBefore(newBlock, pluginsBlock.parent)
-        true
-    }
-
-    private fun GrStatementOwner.getBuildScriptRepositoriesBlock(): GrClosableBlock =
-        getBuildScriptBlock().getBlockOrCreate("repositories")
-
-    private fun GrStatementOwner.getBuildScriptDependenciesBlock(): GrClosableBlock =
-        getBuildScriptBlock().getBlockOrCreate("dependencies")
-
-    private fun GrStatementOwner.getBlockOrCreate(
-        name: String,
-        customInsert: GrStatementOwner.(newBlock: PsiElement) -> Boolean = { false }
-    ): GrClosableBlock {
-        var block = getBlockByName(name)
-        if (block == null) {
-            val factory = GroovyPsiElementFactory.getInstance(project)
-            val newBlock = factory.createExpressionFromText("$name{\n}\n")
-            if (!customInsert(newBlock)) {
-                addAfter(newBlock, statements.lastOrNull() ?: firstChild)
-            }
-            block = getBlockByName(name)!!
-        }
-        return block
-    }
-
     private fun GrClosableBlock.addOrReplaceExpression(snippet: String, predicate: (GrStatement) -> Boolean) {
         statements.firstOrNull(predicate)?.let { stmt ->
             stmt.replaceWithStatementFromText(snippet)
@@ -255,31 +216,6 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
         addLastExpressionInBlockIfNeeded(snippet)
     }
 
-    private fun GrClosableBlock.addLastExpressionInBlockIfNeeded(expressionText: String): Boolean =
-        addExpressionInBlockIfNeeded(expressionText, false)
-
-    private fun GrClosableBlock.addFirstExpressionInBlockIfNeeded(expressionText: String): Boolean =
-        addExpressionInBlockIfNeeded(expressionText, true)
-
-    private fun GrClosableBlock.addExpressionInBlockIfNeeded(expressionText: String, isFirst: Boolean): Boolean {
-        if (text.contains(expressionText)) return false
-        val newStatement = GroovyPsiElementFactory.getInstance(project).createExpressionFromText(expressionText)
-        CodeStyleManager.getInstance(project).reformat(newStatement)
-        if (!isFirst && statements.isNotEmpty()) {
-            val lastStatement = statements[statements.size - 1]
-            if (lastStatement != null) {
-                addAfter(newStatement, lastStatement)
-            }
-        } else {
-            if (firstChild != null) {
-                addAfter(newStatement, firstChild)
-            }
-        }
-        return true
-    }
-
-    private fun getGroovyApplyPluginDirective(pluginName: String) = "apply plugin: '$pluginName'"
-
     private fun GrStatement.replaceWithStatementFromText(snippet: String): GrStatement {
         val newStatement = GroovyPsiElementFactory.getInstance(project).createExpressionFromText(snippet)
         CodeStyleManager.getInstance(project).reformat(newStatement)
@@ -287,9 +223,52 @@ class GroovyBuildScriptManipulator(private val groovyScript: GroovyFile) : Gradl
     }
 
     companion object {
-        private val VERSION_TEMPLATE = "\$VERSION$"
-        private val VERSION = String.format("ext.kotlin_version = '%s'", VERSION_TEMPLATE)
-        private val GRADLE_PLUGIN_ID = "kotlin-gradle-plugin"
-        private val CLASSPATH = "classpath \"$KOTLIN_GROUP_ID:$GRADLE_PLUGIN_ID:\$kotlin_version\""
+        private fun PsiElement.getBlockByName(name: String): GrClosableBlock? {
+            return getChildrenOfType<GrMethodCallExpression>()
+                .filter { it.closureArguments.isNotEmpty() }
+                .find { it.invokedExpression.text == name }
+                ?.let { it.closureArguments[0] }
+        }
+
+        fun GrStatementOwner.getBlockOrCreate(
+            name: String,
+            customInsert: GrStatementOwner.(newBlock: PsiElement) -> Boolean = { false }
+        ): GrClosableBlock {
+            var block = getBlockByName(name)
+            if (block == null) {
+                val factory = GroovyPsiElementFactory.getInstance(project)
+                val newBlock = factory.createExpressionFromText("$name{\n}\n")
+                if (!customInsert(newBlock)) {
+                    addAfter(newBlock, statements.lastOrNull() ?: firstChild)
+                }
+                block = getBlockByName(name)!!
+            }
+            return block
+        }
+
+        fun GrStatementOwner.getBlockOrPrepend(name: String) = getBlockOrCreate(name) { newBlock ->
+            addAfter(newBlock, null)
+            true
+        }
+
+        fun GrClosableBlock.addLastExpressionInBlockIfNeeded(expressionText: String): Boolean =
+            addExpressionInBlockIfNeeded(expressionText, false)
+
+        private fun GrClosableBlock.addExpressionInBlockIfNeeded(expressionText: String, isFirst: Boolean): Boolean {
+            if (statements.any { StringUtil.equalsIgnoreWhitespaces(it.text, expressionText) }) return false
+            val newStatement = GroovyPsiElementFactory.getInstance(project).createExpressionFromText(expressionText)
+            CodeStyleManager.getInstance(project).reformat(newStatement)
+            if (!isFirst && statements.isNotEmpty()) {
+                val lastStatement = statements[statements.size - 1]
+                if (lastStatement != null) {
+                    addAfter(newStatement, lastStatement)
+                }
+            } else {
+                if (firstChild != null) {
+                    addAfter(newStatement, firstChild)
+                }
+            }
+            return true
+        }
     }
 }

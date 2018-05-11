@@ -88,22 +88,20 @@ class GradleConfiguratorTest : GradleImportingTestCase() {
                 val content = LoadTextUtil.loadText(file).toString()
                 assertEquals(
                     """
+                plugins {
+                    id 'org.jetbrains.kotlin.jvm' version '1.0.6'
+                }
                 buildscript {
-                    ext.kotlin_version = '1.0.6'
                     repositories {
                         jcenter()
                         mavenCentral()
                     }
-                    dependencies {
-                        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${"$"}kotlin_version"
-                    }
                 }
-                apply plugin: 'kotlin'
                 repositories {
                     mavenCentral()
                 }
                 dependencies {
-                    compile "org.jetbrains.kotlin:kotlin-stdlib:${"$"}kotlin_version"
+                    compile "org.jetbrains.kotlin:kotlin-stdlib"
                 }
                 """.trimIndent(), content
                 )
@@ -148,19 +146,10 @@ class GradleConfiguratorTest : GradleImportingTestCase() {
                 val content = LoadTextUtil.loadText(file).toString()
                 assertEquals(
                         """
-                buildscript {
-                    ext.kotlin_version = '1.0.6'
-                    repositories {
-                        mavenCentral()
-                    }
-                    dependencies {
-                        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${"$"}kotlin_version"
-                    }
-                }
                 plugins {
                     id 'java'
+                    id 'org.jetbrains.kotlin.jvm' version '1.0.6'
                 }
-                apply plugin: 'kotlin'
 
                 group 'testgroup'
                 version '1.0-SNAPSHOT'
@@ -173,7 +162,7 @@ class GradleConfiguratorTest : GradleImportingTestCase() {
 
                 dependencies {
                     testCompile group: 'junit', name: 'junit', version: '4.12'
-                    compile "org.jetbrains.kotlin:kotlin-stdlib:${"$"}kotlin_version"
+                    compile "org.jetbrains.kotlin:kotlin-stdlib"
                 }
                 """.trimIndent(), content
                 )
@@ -220,23 +209,17 @@ class GradleConfiguratorTest : GradleImportingTestCase() {
                     """
                     import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-                    val kotlin_version: String by extra
+                    plugins {
+                        kotlin("jvm") version "1.1.2"
+                    }
                     buildscript {
-                        var kotlin_version: String by extra
-                        kotlin_version = "1.1.2"
                         repositories {
                             jcenter()
                             mavenCentral()
                         }
-                        dependencies {
-                            classpath(kotlinModule("gradle-plugin", kotlin_version))
-                        }
-                    }
-                    apply {
-                        plugin("kotlin")
                     }
                     dependencies {
-                        compile(kotlinModule("stdlib-jre8", kotlin_version))
+                        compile(kotlin("stdlib-jre8"))
                     }
                     repositories {
                         mavenCentral()

@@ -21,6 +21,7 @@ import com.intellij.openapi.roots.ExternalLibraryDescriptor
 import com.intellij.psi.PsiElement
 
 interface GradleBuildScriptManipulator {
+    fun isConfiguredWithOldSyntax(kotlinPluginName: String): Boolean
     fun isConfigured(kotlinPluginName: String): Boolean
 
     fun configureModuleBuildScript(
@@ -29,8 +30,6 @@ interface GradleBuildScriptManipulator {
         version: String,
         jvmTarget: String?
     ): Boolean
-
-    fun configureProjectBuildScript(version: String): Boolean
 
     fun changeCoroutineConfiguration(coroutineOption: String): PsiElement?
 
@@ -45,4 +44,10 @@ interface GradleBuildScriptManipulator {
     )
 
     fun getKotlinStdlibVersion(): String?
+
+    // For settings.gradle/settings.gradle.kts
+
+    fun addPluginRepository(repository: String)
+
+    fun addResolutionStrategy(pluginId: String)
 }
