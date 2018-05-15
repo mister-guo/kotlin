@@ -56,7 +56,7 @@ public class AddToIncompatibleApiDialog extends DialogWrapper {
             String finalReason = reason == null || reason.isEmpty() ? null : reason;
 
             InspectionProfileModifiableModelKt.modifyAndCommitProjectProfile(project, inspectionProfileModifiableModel -> {
-                ToolsImpl toolImpl = inspectionProfileModifiableModel.getToolsOrNull("IncompatibleAPIUsage", project);
+                ToolsImpl toolImpl = inspectionProfileModifiableModel.getToolsOrNull(IncompatibleAPIInspection.SHORT_NAME, project);
                 if (toolImpl != null) {
                     IncompatibleAPIInspection incompatibleAPIInspection =
                             (IncompatibleAPIInspection) toolImpl.getDefaultState().getTool().getTool();
