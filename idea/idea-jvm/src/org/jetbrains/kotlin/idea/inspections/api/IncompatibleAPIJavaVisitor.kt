@@ -10,17 +10,11 @@ import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.psi.*
 import com.intellij.psi.javadoc.PsiDocComment
-import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.psi.util.PsiUtil
-import com.intellij.util.ObjectUtils
 
-class JavaHighlightApiVisitor internal constructor(
+class IncompatibleAPIJavaVisitor internal constructor(
     private val myHolder: ProblemsHolder,
     private val incompatibleAPIInspection: IncompatibleAPIInspection
 ) : JavaElementVisitor() {
-    private val isIgnored: Boolean
-        get() = false
-
     override fun visitDocComment(comment: PsiDocComment) {
         // No references inside doc comment are of interest.
     }
@@ -31,21 +25,6 @@ class JavaHighlightApiVisitor internal constructor(
         visitReferenceElement(expression)
     }
 
-    override fun visitNameValuePair(pair: PsiNameValuePair) {
-        super.visitNameValuePair(pair)
-        val reference = pair.reference ?: return
-
-        val resolve = reference.resolve()
-        if (resolve !is PsiCompiledElement || resolve !is PsiAnnotationMethod) return
-
-        ModuleUtilCore.findModuleForPsiElement(pair) ?: return
-
-        val problem = incompatibleAPIInspection.findProblem(resolve)
-        if (problem != null) {
-            registerProblemForElement(ObjectUtils.notNull(pair.nameIdentifier, pair), myHolder, problem)
-        }
-    }
-
     override fun visitReferenceElement(reference: PsiJavaCodeReferenceElement) {
         super.visitReferenceElement(reference)
 
@@ -54,19 +33,6 @@ class JavaHighlightApiVisitor internal constructor(
         val psiMember = reference.resolve() as? PsiMember ?: return
 
         val problem = incompatibleAPIInspection.findProblem(psiMember) ?: return
-
-        var psiClass: PsiClass? = null
-        val qualifier = reference.qualifier
-        if (qualifier != null) {
-            if (qualifier is PsiExpression) {
-                psiClass = PsiUtil.resolveClassInType(qualifier.type)
-            }
-        } else {
-            psiClass = PsiTreeUtil.getParentOfType(reference, PsiClass::class.java)
-        }
-        if (psiClass != null) {
-            if (isIgnored) return
-        }
 
         registerProblemForReference(reference, myHolder, problem)
     }
@@ -101,48 +67,6 @@ class JavaHighlightApiVisitor internal constructor(
                 }
             } else {
                 return
-            }
-        }
-    }
-
-    companion object {
-        fun getSignature(member: PsiMember?): String? {
-            return when {
-                member == null -> null
-
-                member is PsiAnonymousClass -> null
-
-                member.containingClass is PsiAnonymousClass -> null
-
-                member is PsiClass -> {
-                    member.qualifiedName
-                }
-
-                member is PsiField -> {
-                    val containingClass = getSignature(member.containingClass)
-                    return if (containingClass == null) null else containingClass + "#" + member.name
-                }
-
-                member is PsiMethod -> {
-                    val method = member as PsiMethod?
-                    val containingClass = getSignature(member.containingClass) ?: return null
-
-                    val buf = StringBuilder()
-                    buf.append(containingClass)
-                    buf.append('#')
-                    buf.append(method!!.name)
-
-                    buf.append('(')
-                    for (type in method.getSignature(PsiSubstitutor.EMPTY).parameterTypes) {
-                        buf.append(type.canonicalText)
-                        buf.append(";")
-                    }
-                    buf.append(')')
-
-                    return buf.toString()
-                }
-
-                else -> null
             }
         }
     }

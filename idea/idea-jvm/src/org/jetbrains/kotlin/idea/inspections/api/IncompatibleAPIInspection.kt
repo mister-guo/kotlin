@@ -21,10 +21,6 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.idea.highlighter.createSuppressWarningActions
 import org.jetbrains.kotlin.idea.inspections.api.IncompatibleAPIInspection.Companion.DEFAULT_REASON
 import org.jetbrains.kotlin.idea.inspections.toSeverity
-import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.psi.KtSimpleNameExpression
-import org.jetbrains.kotlin.psi.KtVisitorVoid
-import org.jetbrains.kotlin.synthetic.JavaSyntheticPropertiesScope
 
 class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspectionTool {
     class Problem(
@@ -56,7 +52,7 @@ class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspe
             }
 
             JavaLanguage.INSTANCE -> {
-                JavaHighlightApiVisitor(holder, this)
+                IncompatibleAPIJavaVisitor(holder, this)
             }
 
             else -> {
@@ -124,44 +120,6 @@ class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspe
     }
 }
 
-private class IncompatibleAPIKotlinVisitor(
-    private val holder: ProblemsHolder,
-    private val forbiddenApiReferences: Map<String, IncompatibleAPIInspection.Problem>,
-    private val words: Set<String>
-) : KtVisitorVoid() {
-    override fun visitSimpleNameExpression(expression: KtSimpleNameExpression) {
-        val nameStr = expression.text
-        if (!Name.isValidIdentifier(nameStr)) {
-            return
-        }
-
-        val names = HashSet<String>()
-        names.add(nameStr)
-
-        val gettersNames = JavaSyntheticPropertiesScope.possibleGetMethodNames(Name.identifier(nameStr))
-        if (!gettersNames.isEmpty()) {
-            names.addAll(gettersNames.map { it.identifier })
-            names.add(JavaSyntheticPropertiesScope.setMethodName(gettersNames.first()).identifier)
-        }
-
-        if (names.none { name -> name in words }) {
-            return
-        }
-
-        checkReference(expression)
-    }
-
-    private fun checkReference(expression: KtSimpleNameExpression) {
-        for (reference in expression.references) {
-            val resolveTo = reference.resolve()
-            val problem = findProblem(resolveTo, forbiddenApiReferences) ?: continue
-
-            registerProblemForReference(reference, holder, problem)
-            break
-        }
-    }
-}
-
 fun registerProblemForReference(
     reference: PsiReference?,
     holder: ProblemsHolder,
@@ -175,31 +133,18 @@ fun registerProblemForReference(
     )
 }
 
-fun registerProblemForElement(
-    psiElement: PsiElement?,
-    holder: ProblemsHolder,
-    problem: IncompatibleAPIInspection.Problem
-) {
-    if (psiElement == null) return
-    holder.registerProblem(
-        psiElement,
-        problem.reason ?: DEFAULT_REASON,
-        ProblemHighlightType.GENERIC_ERROR_OR_WARNING
-    )
-}
-
 fun findProblem(
     resolvedTo: PsiElement?,
     forbiddenApiReferences: Map<String, IncompatibleAPIInspection.Problem>
 ): IncompatibleAPIInspection.Problem? {
     if (resolvedTo == null) return null
-    val signatureStr = getQualifiedNameFromProviders(resolvedTo) ?: return null
+    val referenceStr = getQualifiedNameFromProviders(resolvedTo) ?: return null
 
-    return forbiddenApiReferences[signatureStr] ?: run {
+    return forbiddenApiReferences[referenceStr] ?: run {
         // check constructor
-        val lastPart = signatureStr.substringAfterLast('#', "")
+        val lastPart = referenceStr.substringAfterLast('#', "")
         if (lastPart.isNotEmpty()) {
-            val classFqName = signatureStr.substringBeforeLast('#')
+            val classFqName = referenceStr.substringBeforeLast('#')
             val className = classFqName.substringAfterLast('.')
             if (lastPart.startsWith("$className(")) {
                 return@run forbiddenApiReferences[classFqName]
@@ -209,7 +154,7 @@ fun findProblem(
         null
     } ?: run {
         // Check reference without params
-        val beforeParams = signatureStr.substringBeforeLast('(', "")
+        val beforeParams = referenceStr.substringBeforeLast('(', "")
         if (beforeParams.isNotEmpty()) {
             val overloadSignatureKey = "$beforeParams("
             val particularOverloadPresent = forbiddenApiReferences.keys.any { it.startsWith(overloadSignatureKey) }
