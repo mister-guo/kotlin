@@ -1,11 +1,6 @@
 <problems>
     <problem>
         <file>classes.kt</file>
-        <line>3</line>
-        <description>class example</description>
-    </problem>
-    <problem>
-        <file>classes.kt</file>
         <line>6</line>
         <description>class example</description>
     </problem>
@@ -37,11 +32,6 @@
         <description>static method example</description>
     </problem>
 
-    <problem>
-        <file>JavaTest.java</file>
-        <line>3</line>
-        <description>class example</description>
-    </problem>
     <problem>
         <file>JavaTest.java</file>
         <line>8</line>

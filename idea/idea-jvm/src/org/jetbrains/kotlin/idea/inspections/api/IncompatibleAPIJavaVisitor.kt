@@ -10,6 +10,10 @@ import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.psi.*
 import com.intellij.psi.javadoc.PsiDocComment
+import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.psiUtil.parents
 
 class IncompatibleAPIJavaVisitor internal constructor(
     private val myHolder: ProblemsHolder,
@@ -17,6 +21,10 @@ class IncompatibleAPIJavaVisitor internal constructor(
 ) : JavaElementVisitor() {
     override fun visitDocComment(comment: PsiDocComment) {
         // No references inside doc comment are of interest.
+    }
+
+    override fun visitImportList(list: PsiImportList?) {
+        // Do not report anything in imports
     }
 
     override fun visitClass(aClass: PsiClass) {}
@@ -27,6 +35,13 @@ class IncompatibleAPIJavaVisitor internal constructor(
 
     override fun visitReferenceElement(reference: PsiJavaCodeReferenceElement) {
         super.visitReferenceElement(reference)
+
+        val isInsideImport = reference.element.parents
+            .takeWhile { it is PsiJavaCodeReferenceElement || it is PsiImportStatement }
+            .any { it is PsiImportStatement }
+        if (isInsideImport) {
+            return
+        }
 
         ModuleUtilCore.findModuleForPsiElement(reference.element) ?: return
 
