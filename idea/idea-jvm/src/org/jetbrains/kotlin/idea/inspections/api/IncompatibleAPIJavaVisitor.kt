@@ -43,7 +43,7 @@ class IncompatibleAPIJavaVisitor internal constructor(
         super.visitReferenceElement(reference)
 
         val name = reference.referenceName
-        if (name == null || !problemsCache.isContainsWord(name)) {
+        if (name == null || !problemsCache.containsWord(name)) {
             return
         }
 
@@ -57,7 +57,7 @@ class IncompatibleAPIJavaVisitor internal constructor(
         super.visitNewExpression(expression)
 
         val name = expression.classReference?.referenceName
-        if (name == null || !problemsCache.isContainsWord(name)) {
+        if (name == null || !problemsCache.containsWord(name)) {
             return
         }
 
@@ -74,7 +74,7 @@ class IncompatibleAPIJavaVisitor internal constructor(
         ModuleUtilCore.findModuleForPsiElement(method) ?: return
         super.visitMethod(method)
 
-        if (!problemsCache.isContainsWord(method.name)) {
+        if (!problemsCache.containsWord(method.name)) {
             return
         }
 

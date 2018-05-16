@@ -6,9 +6,12 @@
 package org.jetbrains.kotlin.idea.inspections.api
 
 import com.intellij.codeInspection.ProblemsHolder
+import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.isInImportDirective
+import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.synthetic.JavaSyntheticPropertiesScope
 
 internal class IncompatibleAPIKotlinVisitor(
@@ -36,11 +39,34 @@ internal class IncompatibleAPIKotlinVisitor(
             names.add(JavaSyntheticPropertiesScope.setMethodName(gettersNames.first()).identifier)
         }
 
-        if (names.none { name -> problemsCache.isContainsWord(name) }) {
+        if (names.none { name -> problemsCache.containsWord(name) }) {
             return
         }
 
         checkReference(expression)
+    }
+
+    override fun visitNamedFunction(function: KtNamedFunction) {
+        super.visitNamedFunction(function)
+
+        if (function.modifierList?.getModifier(KtTokens.OVERRIDE_KEYWORD) == null) {
+            return
+        }
+
+        val funName = function.name
+        if (funName == null || !problemsCache.containsWord(funName)) {
+            return
+        }
+
+        val functionDescriptor = function.resolveToDescriptorIfAny() ?: return
+        for (overriddenDescriptor in functionDescriptor.original.overriddenDescriptors) {
+            val psi = overriddenDescriptor.source.getPsi() ?: continue
+            val problem = findProblem(psi, problemsCache)
+            if (problem != null) {
+                registerProblemForElement(function.nameIdentifier, holder, problem)
+                return
+            }
+        }
     }
 
     private fun checkReference(expression: KtSimpleNameExpression) {

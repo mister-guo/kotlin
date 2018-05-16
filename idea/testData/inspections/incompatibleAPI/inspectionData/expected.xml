@@ -67,4 +67,10 @@
         <line>29</line>
         <description>signature changed example</description>
     </problem>
+
+    <problem>
+        <file>super.kt</file>
+        <line>6</line>
+        <description>signature changed example</description>
+    </problem>
 </problems>

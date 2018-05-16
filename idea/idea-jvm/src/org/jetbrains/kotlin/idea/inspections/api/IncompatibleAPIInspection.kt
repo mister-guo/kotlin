@@ -122,7 +122,7 @@ internal class ProblemsCache {
         }
     }
 
-    fun isContainsWord(word: String) = word in words
+    fun containsWord(word: String) = word in words
 }
 
 internal fun registerProblemForReference(
