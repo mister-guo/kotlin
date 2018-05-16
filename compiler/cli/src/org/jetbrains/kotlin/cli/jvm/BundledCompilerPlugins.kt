@@ -20,13 +20,21 @@ import org.jetbrains.kotlin.annotation.AnnotationCollectorCommandLineProcessor
 import org.jetbrains.kotlin.annotation.AnnotationCollectorComponentRegistrar
 import org.jetbrains.kotlin.compiler.plugin.CommandLineProcessor
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
+import org.jetbrains.kotlin.importsDumper.ImportsDumperCommandLineProcessor
+import org.jetbrains.kotlin.importsDumper.ImportsDumperComponentRegistrar
 
 object BundledCompilerPlugins {
 
     val componentRegistrars: List<ComponentRegistrar>
-        get() = listOf(AnnotationCollectorComponentRegistrar())
+        get() = listOf(
+            AnnotationCollectorComponentRegistrar(),
+            ImportsDumperComponentRegistrar()
+        )
 
     val commandLineProcessors: List<CommandLineProcessor>
-        get() = listOf(AnnotationCollectorCommandLineProcessor())
+        get() = listOf(
+            AnnotationCollectorCommandLineProcessor(),
+            ImportsDumperCommandLineProcessor()
+        )
 
 }

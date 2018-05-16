@@ -39,10 +39,14 @@ sourceSets {
         projectDefault()
         java.srcDirs("../../plugins/annotation-collector/src",
                      "../builtins-serializer/src",
-                     "../javac-wrapper/src")
+                     "../javac-wrapper/src",
+                     "../../plugins/imports-dumper/src")
     }
     "test" {
-        java.srcDirs("../../plugins/annotation-collector/test")
+        java.srcDirs(
+            "../../plugins/annotation-collector/test",
+            "../../plugins/imports-dumper/tests"
+        )
     }
 }
 
