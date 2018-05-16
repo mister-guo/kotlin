@@ -2,6 +2,7 @@ package problem.api;
 
 import lib.LibClass;
 import lib.LibMethods;
+import lib.LibSuper;
 
 public class JavaTest {
     void test() {
@@ -21,5 +22,18 @@ public class JavaTest {
     }
 
     public static class Extends extends LibClass {
+    }
+
+    public class Subclass extends LibSuper {
+        @Override
+        public void test(String str) {
+        }
+    }
+
+    public class SubclassSuppress extends LibSuper {
+        @SuppressWarnings("IncompatibleAPI")
+        @Override
+        public void test(String str) {
+        }
     }
 }

@@ -34,23 +34,18 @@
 
     <problem>
         <file>JavaTest.java</file>
-        <line>8</line>
+        <line>9</line>
         <description>class example</description>
     </problem>
     <problem>
         <file>JavaTest.java</file>
-        <line>9</line>
+        <line>10</line>
         <description>static method example</description>
     </problem>
     <problem>
         <file>JavaTest.java</file>
-        <line>13</line>
+        <line>14</line>
         <description>concrete overload example</description>
-    </problem>
-    <problem>
-        <file>JavaTest.java</file>
-        <line>16</line>
-        <description>overload with no params example</description>
     </problem>
     <problem>
         <file>JavaTest.java</file>
@@ -59,7 +54,17 @@
     </problem>
     <problem>
         <file>JavaTest.java</file>
-        <line>23</line>
+        <line>18</line>
+        <description>overload with no params example</description>
+    </problem>
+    <problem>
+        <file>JavaTest.java</file>
+        <line>24</line>
         <description>class example</description>
+    </problem>
+    <problem>
+        <file>JavaTest.java</file>
+        <line>29</line>
+        <description>signature changed example</description>
     </problem>
 </problems>

@@ -138,6 +138,19 @@ internal fun registerProblemForReference(
     )
 }
 
+internal fun registerProblemForElement(
+    element: PsiElement?,
+    holder: ProblemsHolder,
+    problem: IncompatibleAPIInspection.Problem
+) {
+    if (element == null) return
+    holder.registerProblem(
+        element,
+        problem.reason ?: DEFAULT_REASON,
+        ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+    )
+}
+
 internal fun findProblem(
     resolvedTo: PsiElement?,
     problemsCache: ProblemsCache

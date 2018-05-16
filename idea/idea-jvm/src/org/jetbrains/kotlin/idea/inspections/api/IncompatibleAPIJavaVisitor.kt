@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.idea.inspections.api
 
 import com.intellij.codeInsight.AnnotationUtil
 import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.psi.*
 import com.intellij.psi.javadoc.PsiDocComment
@@ -61,11 +62,11 @@ class IncompatibleAPIJavaVisitor internal constructor(
         }
 
         val constructor = expression.resolveConstructor()
-        if (constructor is PsiCompiledElement) {
-            val problem = findProblem(constructor, problemsCache)
-            if (problem != null) {
-                registerProblemForReference(expression.classReference, myHolder, problem)
-            }
+        if (exitOnNonCompiled(constructor)) return
+
+        val problem = findProblem(constructor, problemsCache)
+        if (problem != null) {
+            registerProblemForReference(expression.classReference, myHolder, problem)
         }
     }
 
@@ -77,20 +78,29 @@ class IncompatibleAPIJavaVisitor internal constructor(
             return
         }
 
-        val annotation =
-            (if (!method.isConstructor) AnnotationUtil.findAnnotation(method, CommonClassNames.JAVA_LANG_OVERRIDE) else null) ?: return
+        (if (!method.isConstructor) AnnotationUtil.findAnnotation(method, CommonClassNames.JAVA_LANG_OVERRIDE) else null) ?: return
 
         val methods = method.findSuperMethods()
         for (superMethod in methods) {
-            if (superMethod !is PsiCompiledElement) {
+            if (exitOnNonCompiled(superMethod)) {
                 return
             }
 
             val problem = findProblem(superMethod, problemsCache)
             if (problem != null) {
-                registerProblemForReference(annotation.nameReferenceElement, myHolder, problem)
+                registerProblemForElement(method.nameIdentifier, myHolder, problem)
                 return
             }
         }
+    }
+
+    private fun exitOnNonCompiled(psiElement: PsiElement?): Boolean {
+        if (psiElement != null && psiElement !is PsiCompiledElement) {
+            if (!ApplicationManager.getApplication().isInternal && !ApplicationManager.getApplication().isUnitTestMode) {
+                return true
+            }
+        }
+
+        return false
     }
 }
