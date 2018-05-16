@@ -31,10 +31,10 @@ private class AddIncompatibleApiInspectionHandler : EditorActionHandler() {
 
     override fun doExecute(editor: Editor, caret: Caret?, dataContext: DataContext?) {
         val project = editor.project ?: return
-        val reference = TargetElementUtil.findReference(editor) ?: return
-        val resolve = reference.resolve() ?: return
-        val qualified = getQualifiedNameFromProviders(resolve) ?: return
-
+        val element = TargetElementUtil.findTargetElement(
+            editor, TargetElementUtil.ELEMENT_NAME_ACCEPTED or TargetElementUtil.REFERENCED_ELEMENT_ACCEPTED
+        ) ?: return
+        val qualified = getQualifiedNameFromProviders(element) ?: return
         AddToIncompatibleApiDialog(project, qualified).show()
     }
 }
