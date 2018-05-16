@@ -9,13 +9,11 @@ import com.intellij.codeInspection.ProblemsHolder
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.isInImportDirective
-import org.jetbrains.kotlin.psi.psiUtil.parents
 import org.jetbrains.kotlin.synthetic.JavaSyntheticPropertiesScope
 
 internal class IncompatibleAPIKotlinVisitor(
     private val holder: ProblemsHolder,
-    private val forbiddenApiReferences: Map<String, IncompatibleAPIInspection.Problem>,
-    private val words: Set<String>
+    private val problemsCache: ProblemsCache
 ) : KtVisitorVoid() {
     override fun visitImportList(importList: KtImportList) {
         // Do not report anything in imports
@@ -38,7 +36,7 @@ internal class IncompatibleAPIKotlinVisitor(
             names.add(JavaSyntheticPropertiesScope.setMethodName(gettersNames.first()).identifier)
         }
 
-        if (names.none { name -> name in words }) {
+        if (names.none { name -> name in problemsCache.words }) {
             return
         }
 
@@ -53,7 +51,7 @@ internal class IncompatibleAPIKotlinVisitor(
 
         for (reference in expression.references) {
             val resolveTo = reference.resolve()
-            val problem = findProblem(resolveTo, forbiddenApiReferences) ?: continue
+            val problem = findProblem(resolveTo, problemsCache) ?: continue
 
             registerProblemForReference(reference, holder, problem)
             break

@@ -33,26 +33,26 @@ class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspe
 
     fun addProblem(reference: String, reason: String?) {
         problems += Problem(reference, reason)
-        updateCaches(problems)
+        problemsCache.update(problems)
     }
 
     override fun readSettings(node: Element) {
         super.readSettings(node)
-        updateCaches(problems)
+        problemsCache.update(problems)
     }
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
-        if (forbiddenApiReferencesCache.isEmpty()) {
+        if (problems.isEmpty()) {
             return super.buildVisitor(holder, isOnTheFly)
         }
 
         return when (holder.file.language) {
             KotlinLanguage.INSTANCE -> {
-                IncompatibleAPIKotlinVisitor(holder, forbiddenApiReferencesCache, referenceWordsCaches)
+                IncompatibleAPIKotlinVisitor(holder, problemsCache)
             }
 
             JavaLanguage.INSTANCE -> {
-                IncompatibleAPIJavaVisitor(holder, this)
+                IncompatibleAPIJavaVisitor(holder, problemsCache)
             }
 
             else -> {
@@ -93,16 +93,27 @@ class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspe
     }
 
     private val suppressionKey: String get() = this.shortName
+    private val problemsCache = ProblemsCache()
 
-    private var forbiddenApiReferencesCache: Map<String, Problem> = emptyMap()
-    private var referenceWordsCaches: Set<String> = emptySet()
+    companion object {
+        const val SHORT_NAME = "IncompatibleAPI"
+        const val DEFAULT_REASON = "Incompatible API"
+    }
+}
 
-    private fun updateCaches(problems: List<Problem>) {
+internal class ProblemsCache {
+    var forbiddenApiReferences: Map<String, IncompatibleAPIInspection.Problem> = emptyMap()
+        private set
+
+    var words: Set<String> = emptySet()
+        private set
+
+    fun update(problems: List<IncompatibleAPIInspection.Problem>) {
         val validProblems = problems.filter { !it.reference.isNullOrBlank() }
 
-        forbiddenApiReferencesCache = validProblems.map { it.reference!! to it }.toMap()
+        forbiddenApiReferences = validProblems.map { it.reference!! to it }.toMap()
 
-        referenceWordsCaches = validProblems.mapTo(HashSet()) {
+        words = validProblems.mapTo(HashSet()) {
             val reference = it.reference!!
             if (reference.contains('#')) {
                 reference.substringAfterLast('#').substringBefore('(')
@@ -111,16 +122,9 @@ class IncompatibleAPIInspection : LocalInspectionTool(), CustomSuppressableInspe
             }
         }
     }
-
-    fun findProblem(resolvedTo: PsiElement) = findProblem(resolvedTo, forbiddenApiReferencesCache)
-
-    companion object {
-        const val SHORT_NAME = "IncompatibleAPI"
-        const val DEFAULT_REASON = "Incompatible API"
-    }
 }
 
-fun registerProblemForReference(
+internal fun registerProblemForReference(
     reference: PsiReference?,
     holder: ProblemsHolder,
     problem: IncompatibleAPIInspection.Problem
@@ -133,12 +137,14 @@ fun registerProblemForReference(
     )
 }
 
-fun findProblem(
+internal fun findProblem(
     resolvedTo: PsiElement?,
-    forbiddenApiReferences: Map<String, IncompatibleAPIInspection.Problem>
+    problemsCache: ProblemsCache
 ): IncompatibleAPIInspection.Problem? {
     if (resolvedTo == null) return null
     val referenceStr = getQualifiedNameFromProviders(resolvedTo) ?: return null
+
+    val forbiddenApiReferences = problemsCache.forbiddenApiReferences
 
     return forbiddenApiReferences[referenceStr] ?: run {
         // check constructor
@@ -167,7 +173,7 @@ fun findProblem(
     }
 }
 
-fun getQualifiedNameFromProviders(element: PsiElement): String? {
+internal fun getQualifiedNameFromProviders(element: PsiElement): String? {
     DumbService.getInstance(element.project).isAlternativeResolveEnabled = true
     try {
         for (provider in Extensions.getExtensions(QualifiedNameProvider.EP_NAME)) {

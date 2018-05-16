@@ -10,14 +10,11 @@ import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.psi.*
 import com.intellij.psi.javadoc.PsiDocComment
-import org.jetbrains.kotlin.psi.KtBlockExpression
-import org.jetbrains.kotlin.psi.KtDeclaration
-import org.jetbrains.kotlin.psi.KtImportDirective
 import org.jetbrains.kotlin.psi.psiUtil.parents
 
 class IncompatibleAPIJavaVisitor internal constructor(
     private val myHolder: ProblemsHolder,
-    private val incompatibleAPIInspection: IncompatibleAPIInspection
+    private val problemsCache: ProblemsCache
 ) : JavaElementVisitor() {
     override fun visitDocComment(comment: PsiDocComment) {
         // No references inside doc comment are of interest.
@@ -47,7 +44,7 @@ class IncompatibleAPIJavaVisitor internal constructor(
 
         val psiMember = reference.resolve() as? PsiMember ?: return
 
-        val problem = incompatibleAPIInspection.findProblem(psiMember) ?: return
+        val problem = findProblem(psiMember, problemsCache) ?: return
 
         registerProblemForReference(reference, myHolder, problem)
     }
@@ -58,7 +55,7 @@ class IncompatibleAPIJavaVisitor internal constructor(
         ModuleUtilCore.findModuleForPsiElement(expression) ?: return
 
         if (constructor is PsiCompiledElement) {
-            val problem = incompatibleAPIInspection.findProblem(constructor)
+            val problem = findProblem(constructor, problemsCache)
             if (problem != null) {
                 registerProblemForReference(expression.classReference, myHolder, problem)
             }
@@ -75,7 +72,7 @@ class IncompatibleAPIJavaVisitor internal constructor(
         val methods = method.findSuperMethods()
         for (superMethod in methods) {
             if (superMethod is PsiCompiledElement) {
-                val problem = incompatibleAPIInspection.findProblem(superMethod)
+                val problem = findProblem(superMethod, problemsCache)
                 if (problem != null) {
                     registerProblemForReference(annotation.nameReferenceElement, myHolder, problem)
                     return
