@@ -98,8 +98,7 @@ public class TypeSubstitutor {
 
     @Nullable
     public KotlinType substitute(@NotNull KotlinType type, @NotNull Variance howThisTypeIsUsed) {
-        TypeProjection projection =
-                substitute(new TypeProjectionImpl(howThisTypeIsUsed, getSubstitution().prepareTopLevelType(type, howThisTypeIsUsed)));
+        TypeProjection projection = substitute(new TypeProjectionImpl(howThisTypeIsUsed, type));
         return projection == null ? null : projection.getType();
     }
 

@@ -30,9 +30,6 @@ abstract class TypeSubstitution {
 
     abstract operator fun get(key: KotlinType): TypeProjection?
 
-    // This can be used to perform preliminary manipulations with top-level types
-    open fun prepareTopLevelType(topLevelType: KotlinType, position: Variance): KotlinType = topLevelType
-
     open fun isEmpty(): Boolean = false
 
     open fun approximateCapturedTypes(): Boolean = false
@@ -148,7 +145,6 @@ fun SimpleType.replace(
 
 open class DelegatedTypeSubstitution(val substitution: TypeSubstitution): TypeSubstitution() {
     override fun get(key: KotlinType) = substitution[key]
-    override fun prepareTopLevelType(topLevelType: KotlinType, position: Variance) = substitution.prepareTopLevelType(topLevelType, position)
 
     override fun isEmpty() = substitution.isEmpty()
 
