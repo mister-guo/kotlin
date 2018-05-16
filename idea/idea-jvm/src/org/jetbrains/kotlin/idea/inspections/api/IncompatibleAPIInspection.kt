@@ -105,8 +105,7 @@ internal class ProblemsCache {
     var forbiddenApiReferences: Map<String, IncompatibleAPIInspection.Problem> = emptyMap()
         private set
 
-    var words: Set<String> = emptySet()
-        private set
+    private var words: Set<String> = emptySet()
 
     fun update(problems: List<IncompatibleAPIInspection.Problem>) {
         val validProblems = problems.filter { !it.reference.isNullOrBlank() }
@@ -122,6 +121,8 @@ internal class ProblemsCache {
             }
         }
     }
+
+    fun isContainsWord(word: String) = word in words
 }
 
 internal fun registerProblemForReference(

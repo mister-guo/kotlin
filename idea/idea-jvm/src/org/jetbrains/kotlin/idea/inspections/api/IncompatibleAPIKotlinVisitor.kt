@@ -36,7 +36,7 @@ internal class IncompatibleAPIKotlinVisitor(
             names.add(JavaSyntheticPropertiesScope.setMethodName(gettersNames.first()).identifier)
         }
 
-        if (names.none { name -> name in problemsCache.words }) {
+        if (names.none { name -> problemsCache.isContainsWord(name) }) {
             return
         }
 

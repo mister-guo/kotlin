@@ -31,8 +31,6 @@ class IncompatibleAPIJavaVisitor internal constructor(
     }
 
     override fun visitReferenceElement(reference: PsiJavaCodeReferenceElement) {
-        super.visitReferenceElement(reference)
-
         val isInsideImport = reference.element.parents
             .takeWhile { it is PsiJavaCodeReferenceElement || it is PsiImportStatement }
             .any { it is PsiImportStatement }
@@ -41,19 +39,28 @@ class IncompatibleAPIJavaVisitor internal constructor(
         }
 
         ModuleUtilCore.findModuleForPsiElement(reference.element) ?: return
+        super.visitReferenceElement(reference)
+
+        val name = reference.referenceName
+        if (name == null || !problemsCache.isContainsWord(name)) {
+            return
+        }
 
         val psiMember = reference.resolve() as? PsiMember ?: return
-
         val problem = findProblem(psiMember, problemsCache) ?: return
-
         registerProblemForReference(reference, myHolder, problem)
     }
 
     override fun visitNewExpression(expression: PsiNewExpression) {
-        super.visitNewExpression(expression)
-        val constructor = expression.resolveConstructor()
         ModuleUtilCore.findModuleForPsiElement(expression) ?: return
+        super.visitNewExpression(expression)
 
+        val name = expression.classReference?.referenceName
+        if (name == null || !problemsCache.isContainsWord(name)) {
+            return
+        }
+
+        val constructor = expression.resolveConstructor()
         if (constructor is PsiCompiledElement) {
             val problem = findProblem(constructor, problemsCache)
             if (problem != null) {
@@ -63,21 +70,25 @@ class IncompatibleAPIJavaVisitor internal constructor(
     }
 
     override fun visitMethod(method: PsiMethod) {
+        ModuleUtilCore.findModuleForPsiElement(method) ?: return
         super.visitMethod(method)
+
+        if (!problemsCache.isContainsWord(method.name)) {
+            return
+        }
+
         val annotation =
             (if (!method.isConstructor) AnnotationUtil.findAnnotation(method, CommonClassNames.JAVA_LANG_OVERRIDE) else null) ?: return
 
-        ModuleUtilCore.findModuleForPsiElement(annotation) ?: return
-
         val methods = method.findSuperMethods()
         for (superMethod in methods) {
-            if (superMethod is PsiCompiledElement) {
-                val problem = findProblem(superMethod, problemsCache)
-                if (problem != null) {
-                    registerProblemForReference(annotation.nameReferenceElement, myHolder, problem)
-                    return
-                }
-            } else {
+            if (superMethod !is PsiCompiledElement) {
+                return
+            }
+
+            val problem = findProblem(superMethod, problemsCache)
+            if (problem != null) {
+                registerProblemForReference(annotation.nameReferenceElement, myHolder, problem)
                 return
             }
         }
