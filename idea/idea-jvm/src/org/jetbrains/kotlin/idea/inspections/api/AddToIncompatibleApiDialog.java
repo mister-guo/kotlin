@@ -10,13 +10,13 @@ import com.intellij.codeInspection.ex.ToolsImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
 
 public class AddToIncompatibleApiDialog extends DialogWrapper {
     private JPanel contentPane;
-    private JButton buttonOK;
     private JTextField referenceTextField;
     private JTextField reasonTextField;
 
@@ -27,10 +27,16 @@ public class AddToIncompatibleApiDialog extends DialogWrapper {
         this.project = project;
 
         setModal(true);
-        getRootPane().setDefaultButton(buttonOK);
         setTitle("Report as Incompatible API");
         referenceTextField.setText(qualifiedReference);
+
         init();
+    }
+
+    @Nullable
+    @Override
+    public JComponent getPreferredFocusedComponent() {
+        return reasonTextField;
     }
 
     @Override
